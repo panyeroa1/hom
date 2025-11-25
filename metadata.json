@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Homes",
+  "description": "Voice-enabled apartment assistant powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
