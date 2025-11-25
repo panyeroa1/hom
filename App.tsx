@@ -7,6 +7,8 @@ import { searchListings } from './services/mockDb';
 import { parseUserUtterance, createAudioContext } from './services/gemini';
 import { ApartmentSearchFilters, Listing } from './types';
 import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from '@google/genai';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthScreen } from './components/AuthScreen';
 
 // --- Helpers ---
 function base64ToBytes(base64: string): Uint8Array {
@@ -49,7 +51,9 @@ const updateFiltersTool: FunctionDeclaration = {
 
 type ViewState = 'homes' | 'resume' | 'interview';
 
-const App: React.FC = () => {
+// --- Main Authenticated App Content ---
+const AuthenticatedApp: React.FC = () => {
+  const { user, signOut } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>('homes');
 
   // --- State for Homes ---
@@ -364,36 +368,50 @@ const App: React.FC = () => {
             </button>
         </div>
 
-        {currentView === 'homes' && (
-            <div className="flex items-center gap-3 hidden md:flex">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 bg-slate-100 px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors select-none">
-                    <input 
-                        type="checkbox" 
-                        checked={filters.petsAllowed === true} 
+        <div className="flex items-center gap-4">
+            {currentView === 'homes' && (
+                <div className="flex items-center gap-3 hidden md:flex">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 bg-slate-100 px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors select-none">
+                        <input 
+                            type="checkbox" 
+                            checked={filters.petsAllowed === true} 
+                            onChange={(e) => {
+                                const newFilters = { ...filters, petsAllowed: e.target.checked ? true : undefined };
+                                setFilters(newFilters);
+                                loadListings(newFilters);
+                            }}
+                            className="w-4 h-4 accent-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                        />
+                        <span>Pets</span>
+                    </label>
+                    <select 
+                        value={filters.sortBy || 'default'} 
                         onChange={(e) => {
-                            const newFilters = { ...filters, petsAllowed: e.target.checked ? true : undefined };
+                            const newFilters = { ...filters, sortBy: e.target.value as ApartmentSearchFilters['sortBy'] };
                             setFilters(newFilters);
                             loadListings(newFilters);
                         }}
-                        className="w-4 h-4 accent-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
-                    />
-                    <span>Pets</span>
-                </label>
-                <select 
-                    value={filters.sortBy || 'default'} 
-                    onChange={(e) => {
-                        const newFilters = { ...filters, sortBy: e.target.value as ApartmentSearchFilters['sortBy'] };
-                        setFilters(newFilters);
-                        loadListings(newFilters);
-                    }}
-                    className="bg-slate-100 text-slate-700 text-sm font-medium px-3 py-2 rounded-lg border-none focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none"
+                        className="bg-slate-100 text-slate-700 text-sm font-medium px-3 py-2 rounded-lg border-none focus:ring-2 focus:ring-indigo-500 cursor-pointer outline-none"
+                    >
+                        <option value="default">Relevance</option>
+                        <option value="price_asc">Price: Low to High</option>
+                        <option value="price_desc">Price: High to Low</option>
+                    </select>
+                </div>
+            )}
+            
+            <div className="border-l border-slate-200 pl-4 ml-2">
+                <button 
+                    onClick={signOut}
+                    className="text-slate-500 hover:text-red-600 transition-colors"
+                    title="Sign Out"
                 >
-                    <option value="default">Relevance</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                </select>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                    </svg>
+                </button>
             </div>
-        )}
+        </div>
       </header>
 
       {/* Main Content Area */}
@@ -551,6 +569,36 @@ const App: React.FC = () => {
 
     </div>
   );
+};
+
+// --- Container App ---
+const App: React.FC = () => {
+    return (
+        <AuthProvider>
+            <AuthConsumer />
+        </AuthProvider>
+    );
+};
+
+const AuthConsumer: React.FC = () => {
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                 <svg className="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return <AuthScreen />;
+    }
+
+    return <AuthenticatedApp />;
 };
 
 export default App;
